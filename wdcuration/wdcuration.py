@@ -7,7 +7,7 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 
 def search_wikidata(search_term):
     """
-    Looks up string for institution on Wikidata
+    Looks up string on Wikidata
     """
 
     base_url = "https://www.wikidata.org/w/api.php"
