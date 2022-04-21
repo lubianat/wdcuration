@@ -1,8 +1,18 @@
 """Main module."""
+from tokenize import String
 import clipboard
 import requests
 from urllib.parse import quote
 from SPARQLWrapper import SPARQLWrapper, JSON
+import webbrowser
+
+
+def go_to_wikidata(search_term):
+    """
+    Open the browser for manual search on Wikidata
+    """
+    url = "https://www.wikidata.org/w/index.php?search=" + quote(search_term)
+    webbrowser.open_new_tab(url)
 
 
 def search_wikidata(search_term):
@@ -71,11 +81,14 @@ def add_key(dictionary, string):
             dictionary[string] = predicted_id["id"]
             annotated = True
         elif answer == "n":
+            search = input("Search Wikidata? (y/n)")
+            if search == "y":
+                go_to_wikidata(string)
             qid = input(f"What is the qid for: '{string}' ? ")
             dictionary[string] = qid
             annotated = True
         else:
-            print("Answer must be either 'y' or 'n'")
+            print("Answer must be either 'y', 'n' ")
 
     return dictionary
 
