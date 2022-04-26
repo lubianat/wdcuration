@@ -99,12 +99,15 @@ def render_qs_url(qs):
     return url
 
 
-def lookup_id(id, property, default):
+def lookup_id(id, property, default=""):
     """
     Looks up a foreign ID on Wikidata based on its specific property.
     """
 
-    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
+    sparql = SPARQLWrapper(
+        "https://query.wikidata.org/sparql",
+        agent="wdcuration (https://github.com/lubianat/wdcuration)",
+    )
     query = f"""
     SELECT ?item ?itemLabel
     WHERE
@@ -119,6 +122,35 @@ def lookup_id(id, property, default):
     bindings = results["results"]["bindings"]
     if len(bindings) == 1:
         item = bindings[0]["item"]["value"].split("/")[-1]
+        return item
+    else:
+        return default
+
+
+def lookup_label(qid, lang="en", default=""):
+    """
+    Looks up a label on Wikidata given a QID.
+    """
+
+    sparql = SPARQLWrapper(
+        "https://query.wikidata.org/sparql",
+        agent="wdcuration (https://github.com/lubianat/wdcuration)",
+    )
+    query = f"""
+    SELECT ?item ?itemLabel
+    WHERE
+    {{
+        {qid} rdfs:label ?itemLabel. 
+        FILTER (LANG (?itemLabel) = "{lang}")
+    }}
+    """
+    sparql.setQuery(query)
+
+    sparql.setReturnFormat(JSON)
+    results = sparql.query().convert()
+    bindings = results["results"]["bindings"]
+    if len(bindings) == 1:
+        item = bindings[0]["itemLabel"]["value"].split("/")[-1]
         return item
     else:
         return default
