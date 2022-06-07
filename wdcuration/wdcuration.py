@@ -5,7 +5,11 @@ import requests
 from urllib.parse import quote
 from SPARQLWrapper import SPARQLWrapper, JSON
 import webbrowser
+from time import gmtime, strftime
 
+
+def today_in_quickstatements()
+    return strftime("+%Y-%m-%dT00:00:00Z/11", gmtime())
 
 def go_to_wikidata(search_term):
     """
