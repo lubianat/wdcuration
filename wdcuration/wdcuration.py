@@ -8,7 +8,10 @@ import webbrowser
 from time import gmtime, strftime
 
 
-def today_in_quickstatements()
+def today_in_quickstatements():
+    """
+    Return todays date in quickstatements format. 
+    """
     return strftime("+%Y-%m-%dT00:00:00Z/11", gmtime())
 
 def go_to_wikidata(search_term):
@@ -98,6 +101,9 @@ def add_key(dictionary, string):
 
 
 def render_qs_url(qs):
+    """
+    Render an URL targeting Quickstatements.
+    """
     quoted_qs = quote(qs.replace("\t", "|").replace("\n", "||"), safe="")
     url = f"https://quickstatements.toolforge.org/#/v1={quoted_qs}\\"
     return url
