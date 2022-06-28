@@ -10,9 +10,10 @@ from time import gmtime, strftime
 
 def today_in_quickstatements():
     """
-    Return todays date in quickstatements format. 
+    Return todays date in quickstatements format.
     """
     return strftime("+%Y-%m-%dT00:00:00Z/11", gmtime())
+
 
 def go_to_wikidata(search_term):
     """
@@ -112,6 +113,14 @@ def render_qs_url(qs):
 def lookup_id(id, property, default=""):
     """
     Looks up a foreign ID on Wikidata based on its specific property.
+
+    Args:
+      id (str): The value of the ID as encoded on Wikidata.
+      property (str): The property used to link to that ID .
+      default (str): What to return if no unique ID is present. Defaults to "".
+
+    Returns:
+      str: The Wikidata QID for the foreign ID or "".
     """
 
     sparql = SPARQLWrapper(
