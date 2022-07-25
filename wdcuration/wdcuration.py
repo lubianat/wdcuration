@@ -59,7 +59,7 @@ def parse_wikidata_result(wikidata_result):
     return {
         "id": first_item["id"],
         "label": first_item["label"],
-        "description": first_item["description"],
+        "description": first_item.get("description", "no description"),
         "url": f"https://www.wikidata.org/wiki/{first_item['id']}",
     }
 
