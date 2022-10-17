@@ -175,24 +175,41 @@ def lookup_label(qid, lang="en", default=""):
         return default
 
 
-def get_statement_values(qid, property):
+def get_statement_values(qid, property, label=False):
     """
     Return the values for a Wikidata QID + PID pair as a Python list.
     """
 
+    if label:
+        label_projection = "?valueLabel"
+        label_line = (
+            "?value rdfs:label ?valueLabel . FILTER (LANG (?valueLabel) = 'en')"
+        )
+    else:
+        label_projection = ""
+        label_line = ""
     query = f"""
-    SELECT ?value
+    SELECT ?value {label_projection}
     WHERE
     {{
         wd:{qid} wdt:{property} ?value .
+        {label_line}
     }}
     """
 
     bindings = query_wikidata(query)
     value_list = []
     for binding in bindings:
-        value_list.append(binding["value"])
+        if label:
+            value_list.append(
+                {
+                    "id": binding["value"].split("/")[-1],
+                    "label": binding["valueLabel"],
+                }
+            )
 
+        else:
+            value_list.append(binding["value"])
     return value_list
 
 
