@@ -2,6 +2,15 @@
 
 __author__ = """Tiago Lubiana"""
 __email__ = "tiago.lubiana.alves@usp.br"
-__version__ = '0.1.1'
+__version__ = "0.1.1"
 
-from .wdcuration import search_wikidata, add_key, render_qs_url, lookup_id, today_in_quickstatements
+from .wdcuration import (
+    query_wikidata,
+    search_wikidata,
+    add_key,
+    render_qs_url,
+    lookup_id,
+    today_in_quickstatements,
+    get_statement_values,
+    query_wikidata,
+)
