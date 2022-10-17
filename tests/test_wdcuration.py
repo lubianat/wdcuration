@@ -5,14 +5,16 @@
 
 import unittest
 
-from wdcuration import wdcuration
+import wdcuration as wd
 
 
 class TestWdcuration(unittest.TestCase):
     """Tests for `wdcuration` package."""
 
-    def setUp(self):
-        """Set up test fixtures, if any."""
+    def test_get_list(self):
+        target = ["1.C.110.1.1"]
+        result = wd.wdcuration.get_statement_values("Q283350", "P7260")
+        assert target == result
 
     def tearDown(self):
         """Tear down test fixtures, if any."""

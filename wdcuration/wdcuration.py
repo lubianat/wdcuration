@@ -8,6 +8,10 @@ import webbrowser
 from time import gmtime, strftime
 
 
+def main():
+    query_wikidata("SELECT * WHERE {?s ?p ?o} LIMIT 10 ")
+
+
 def today_in_quickstatements():
     """
     Return todays date in quickstatements format.
@@ -163,13 +167,61 @@ def lookup_label(qid, lang="en", default=""):
         FILTER (LANG (?itemLabel) = "{lang}")
     }}
     """
+    bindings = query_wikidata(query)
+    if len(bindings) == 1:
+        item = bindings[0]["itemLabel"].split("/")[-1]
+        return item
+    else:
+        return default
+
+
+def get_statement_values(qid, property):
+    """
+    Return the values for a Wikidata QID + PID pair as a Python list.
+    """
+
+    query = f"""
+    SELECT ?value
+    WHERE
+    {{
+        wd:{qid} wdt:{property} ?value .
+    }}
+    """
+
+    bindings = query_wikidata(query)
+    value_list = []
+    for binding in bindings:
+        value_list.append(binding["value"])
+
+    return value_list
+
+
+def query_wikidata(
+    query,
+    endpoint="https://query.wikidata.org/sparql",
+    agent="wdcuration (https://github.com/lubianat/wdcuration)",
+    simplify=True,
+):
+    """A simple function to query Wikidata and return a python dictionary"""
+    sparql = SPARQLWrapper(endpoint=endpoint, agent=agent)
     sparql.setQuery(query)
 
     sparql.setReturnFormat(JSON)
     results = sparql.query().convert()
     bindings = results["results"]["bindings"]
-    if len(bindings) == 1:
-        item = bindings[0]["itemLabel"]["value"].split("/")[-1]
-        return item
+
+    if simplify:
+        return_value = []
+
+        for binding in bindings:
+            entry = {}
+            for key, value in binding.items():
+                entry[key] = value["value"]
+            return_value.append(entry)
+        return return_value
     else:
-        return default
+        return bindings
+
+
+if __name__ == "__main__":
+    main()
