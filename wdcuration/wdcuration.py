@@ -1,5 +1,6 @@
 """Main module."""
 from tokenize import String
+from typing import OrderedDict
 import clipboard
 import requests
 from urllib.parse import quote
