@@ -27,13 +27,13 @@ def lookup_multiple_ids(list_of_ids, wikidata_property):
     """
     if len(list_of_ids) > 200:
         list_of_smaller_lists_of_ids = chunk(list_of_ids, 200)
-        result_dict_list = []
+        result_dict = {}
         for small_list in tqdm(list_of_smaller_lists_of_ids):
-            current_list_of_dicts = lookup_multiple_ids(small_list, wikidata_property)
-            result_dict_list.extend(current_list_of_dicts)
+            current_dict = lookup_multiple_ids(small_list, wikidata_property)
+            result_dict.update(current_dict)
             sleep(0.3)
 
-        return result_dict_list
+        return result_dict
 
     formatted_ids = '""'.join(list_of_ids)
     query = (
@@ -48,7 +48,11 @@ def lookup_multiple_ids(list_of_ids, wikidata_property):
   }
   """
     )
-    return query_wikidata(query)
+    query_result = query_wikidata(query)
+    result_dict = {}
+    for entry in query_result:
+        result_dict[entry["id"]] = entry["qid"]
+    return result_dict
 
 
 def today_in_quickstatements():
