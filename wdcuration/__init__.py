@@ -12,5 +12,6 @@ from .wdcuration import (
     lookup_id,
     today_in_quickstatements,
     get_statement_values,
+    lookup_multiple_ids,
     query_wikidata,
 )
