@@ -6,11 +6,49 @@ import requests
 from urllib.parse import quote
 from SPARQLWrapper import SPARQLWrapper, JSON
 import webbrowser
-from time import gmtime, strftime
+from time import gmtime, strftime, sleep
+from tqdm import tqdm
+from itertools import islice
 
 
 def main():
     query_wikidata("SELECT * WHERE {?s ?p ?o} LIMIT 10 ")
+
+
+def chunk(arr_range, arr_size):
+    """Breaks up a list into a list of lists"""
+    arr_range = iter(arr_range)
+    return iter(lambda: tuple(islice(arr_range, arr_size)), ())
+
+
+def lookup_multiple_ids(list_of_ids, wikidata_property):
+    """
+    Looks up multiple IDs on Wikidata and returns a dict containing them and the QIDs.
+    """
+    if len(list_of_ids) > 200:
+        list_of_smaller_lists_of_ids = chunk(list_of_ids, 200)
+        result_dict_list = []
+        for small_list in tqdm(list_of_smaller_lists_of_ids):
+            current_list_of_dicts = lookup_multiple_ids(small_list, wikidata_property)
+            result_dict_list.extend(current_list_of_dicts)
+            sleep(0.3)
+
+        return result_dict_list
+
+    formatted_ids = '""'.join(list_of_ids)
+    query = (
+        """
+  SELECT  
+  (REPLACE(STR(?item), ".*Q", "Q") AS ?qid) 
+  ?id 
+  WHERE { """
+        f'VALUES ?id {{ "{formatted_ids}" }} . '
+        f"?item wdt:{wikidata_property} ?id . "
+        """
+  }
+  """
+    )
+    return query_wikidata(query)
 
 
 def today_in_quickstatements():
