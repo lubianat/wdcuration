@@ -111,36 +111,42 @@ def parse_wikidata_result(wikidata_result):
     }
 
 
-def add_key(dictionary, string):
+def add_key(dictionary, string, dict_key="", search_string=""):
     """
     Prompts the user for adding a key to the target dictionary.
     Args:
         dictionary (dict): A reference dictionary containing strings as keys and Wikidata QIDs as values.
         string (str): A new key to add to the dictionary.
+        dict_key (str): The key to be used in the dictionary. If none is provided, uses the "string" entry.
+        search_string (str): The string to be searched in Wikidata. If none is provided, uses the "string" entry.
     Returns:
         dict: The updated dictionary.
     """
 
-    clipboard.copy(string)
-    predicted_id = search_wikidata(string)
+    if dict_key == "":
+        dict_key = string
+    if search_string == "":
+        search_string = string
+
+    predicted_id = search_wikidata(search_string)
     annotated = False
 
     while annotated == False:
         answer = input(
-            f"Is the QID for '{string}'  \n "
+            f"Is the QID for '{search_string}'  \n "
             f"{predicted_id['id']} - {predicted_id['label']} "
             f"({predicted_id['description']}) ? (y/n) "
         )
 
         if answer == "y":
-            dictionary[string] = predicted_id["id"]
+            dictionary[dict_key] = predicted_id["id"]
             annotated = True
         elif answer == "n":
             search = input("Search Wikidata? (y/n)")
             if search == "y":
-                go_to_wikidata(string)
-            qid = input(f"What is the qid for: '{string}' ? ")
-            dictionary[string] = qid
+                go_to_wikidata(search_string)
+            qid = input(f"What is the qid for: '{search_string}' ? ")
+            dictionary[dict_key] = qid
             annotated = True
         else:
             print("Answer must be either 'y', 'n' ")
