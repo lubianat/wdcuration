@@ -9,6 +9,7 @@ import webbrowser
 from time import gmtime, strftime, sleep
 from tqdm import tqdm
 from itertools import islice
+import json
 
 
 def main():
@@ -70,20 +71,23 @@ def go_to_wikidata(search_term):
     webbrowser.open_new_tab(url)
 
 
-def search_wikidata(search_term):
+def search_wikidata(search_term, excluded_types: list = ["Q13442814"]):
     """
     Looks up string on Wikidata
     """
 
+    for excluded_type in excluded_types:
+        search_term += f" -haswbstatement:P31={excluded_type} "
+
     base_url = "https://www.wikidata.org/w/api.php"
     payload = {
-        "action": "wbsearchentities",
-        "search": search_term,
+        "action": "query",
+        "list": "search",
+        "srsearch": search_term,
         "language": "en",
         "format": "json",
         "origin": "*",
     }
-
     res = requests.get(base_url, params=payload)
 
     parsed_res = parse_wikidata_result(res.json())
@@ -93,7 +97,7 @@ def search_wikidata(search_term):
 def parse_wikidata_result(wikidata_result):
 
     # Workaround for when finding no results
-    if len(wikidata_result["search"]) == 0:
+    if len(wikidata_result["query"]["search"]) == 0:
         return {
             "id": "NONE",
             "label": "NONE",
@@ -101,17 +105,64 @@ def parse_wikidata_result(wikidata_result):
             "url": f"https://www.wikidata.org/wiki/NONE",
         }
 
-    first_item = wikidata_result["search"][0]
-
+    first_item = wikidata_result["query"]["search"][0]
+    qid = first_item["title"]
+    label_and_description = get_label_and_description(qid, lang="en")[0]
     return {
-        "id": first_item["id"],
-        "label": first_item["label"],
-        "description": first_item.get("description", "no description"),
-        "url": f"https://www.wikidata.org/wiki/{first_item['id']}",
+        "id": qid,
+        "label": label_and_description["label"],
+        "description": label_and_description.get("description", "no description"),
+        "url": f"https://www.wikidata.org/wiki/{qid}",
     }
 
 
-def add_key(dictionary, string, dict_key="", search_string=""):
+def get_label_and_description(qid, lang="en"):
+    label_and_description_query = (
+        """
+    SELECT ?label ?description
+    WHERE 
+    {"""
+        f"wd:{qid} rdfs:label ?label . "
+        f"wd:{qid} schema:description ?description . "
+        f'FILTER (LANG (?label) = "{lang}")'
+        f'FILTER (LANG (?description) = "{lang}")'
+        """}"""
+    )
+    label_and_description = query_wikidata(label_and_description_query)
+    return label_and_description
+
+
+def check_and_save_dict(
+    master_dict,
+    dict_name,
+    string,
+    path,
+    dict_key="",
+    search_string="",
+    format_function=str,
+    excluded_types: list = ["Q13442814"],
+):
+    if string not in master_dict[dict_name]:
+        master_dict[dict_name] = add_key(
+            master_dict[dict_name],
+            string,
+            dict_key=dict_key,
+            search_string=format_function(string),
+            excluded_types=excluded_types,
+        )
+        path.joinpath(f"{dict_name}.json").write_text(
+            json.dumps(master_dict[dict_name], indent=4, sort_keys=True)
+        )
+    return master_dict[dict_name]
+
+
+def add_key(
+    dictionary,
+    string,
+    dict_key="",
+    search_string="",
+    excluded_types: list = ["Q13442814"],
+):
     """
     Prompts the user for adding a key to the target dictionary.
     Args:
@@ -128,7 +179,7 @@ def add_key(dictionary, string, dict_key="", search_string=""):
     if search_string == "":
         search_string = string
 
-    predicted_id = search_wikidata(search_string)
+    predicted_id = search_wikidata(search_string, excluded_types)
     annotated = False
 
     while annotated == False:
@@ -142,9 +193,11 @@ def add_key(dictionary, string, dict_key="", search_string=""):
             dictionary[dict_key] = predicted_id["id"]
             annotated = True
         elif answer == "n":
-            search = input("Search Wikidata? (y/n)")
+            search = input("Search Wikidata? (y/n/skip)")
             if search == "y":
                 go_to_wikidata(search_string)
+            elif search == "skip":
+                break
             qid = input(f"What is the qid for: '{search_string}' ? ")
             dictionary[dict_key] = qid
             annotated = True
