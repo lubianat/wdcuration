@@ -123,10 +123,13 @@ def get_label_and_description(qid, lang="en"):
     WHERE 
     {"""
         f"wd:{qid} rdfs:label ?label . "
-        f"wd:{qid} schema:description ?description . "
         f'FILTER (LANG (?label) = "{lang}")'
+        "OPTIONAL {"
+        f"wd:{qid} schema:description ?description . "
+
         f'FILTER (LANG (?description) = "{lang}")'
-        """}"""
+        "}"
+        "}"
     )
     label_and_description = query_wikidata(label_and_description_query)
     return label_and_description
