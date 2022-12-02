@@ -11,7 +11,11 @@ from .wdcuration import (
     render_qs_url,
     lookup_id,
     today_in_quickstatements,
+    convert_date_to_quickstatements,
     get_statement_values,
     lookup_multiple_ids,
     query_wikidata,
+    check_and_save_dict,
+    WikidataDictAndKey,
+    NewItemConfig,
 )

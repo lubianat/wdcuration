@@ -1,4 +1,5 @@
 """Main module."""
+from pathlib import Path
 from tokenize import String
 from typing import OrderedDict
 import clipboard
@@ -6,14 +7,133 @@ import requests
 from urllib.parse import quote
 from SPARQLWrapper import SPARQLWrapper, JSON
 import webbrowser
-from time import gmtime, strftime, sleep
+from time import gmtime, strftime, sleep, strptime
 from tqdm import tqdm
 from itertools import islice
 import json
+from dataclasses import dataclass, field
+from typing import List
+
+@dataclass
+class NewItemConfig:
+  """ A class containing the information for a new item
+  
+  Attributes:
+    labels: A dictionary of labels in the format {"langcode": "label"}
+    descriptions: A dictionary of descriptions in the format {"langcode": "description"}
+    id_property: The property for the target ID for the item, if available. 
+    id_value:  The value for the target id. 
+  """
+
+  labels: dict
+  descriptions: dict 
+  item_property_value_pairs: dict = field(default_factory=lambda:  {})
+  id_property: str = ""
+  id_value: str = ""
+  quickstatements = ""
+
+  def render_quickstatements(self):
+      qs = """CREATE
+      """
+      for k,v in self.labels.items():
+        qs += f"""
+      LAST|L{k}|"{v}" """
+
+      for k,v in self.descriptions.items():
+        qs += f"""
+      LAST|D{k}|"{v}" """
+
+      for k,v in self.item_property_value_pairs.items:
+          qs += f"""
+      LAST|{k}|{v} """
+      
+
+      if id_property != "":
+        qs += f"""
+      LAST|{id_property}|{id_value}
+        """
+      self.quickstatements = qs
+@dataclass
+class WikidataDictAndKey:
+    """
+    A class containing the dicts and keys used in reconciliations to Wikidata
+    Attributes:
+      master_dict: A dict of dicts, each of the inner dicts containing the keys mapped to Wikidata ids.
+      dict_name: The name of the inner dict that the new key will be added.
+      string: The key and search string to be added to the dict. It is overwritten by
+      "dict_key" and "search_string" when available.
+      dict_key: The dict key to be added to the curation dictionary.
+      search_string: A custom search string, when different from the dict key
+      path: The Pathlib path to the folder where the dicts are stored.
+      format_function: The function to format the string before the search. Defaults to str (no change).
+      excluded_types: A list of Wikidata P31 values to be excluded of the search.
+
+    """
+
+    master_dict: dict
+    dict_name: str
+    path: Path
+    new_item_config = None
+    string: str = ""
+    dict_key: str = ("",)
+    search_string: str = ""
+    format_function = str
+    excluded_types: List = field(default_factory=lambda: ["Q13442814"])
+
+    def add_key(self):
+        """
+        Prompts the user for adding a key to the target dictionary.
+        """
+
+        if self.dict_key == "":
+            self.dict_key = self.string
+        if self.search_string == "":
+            self.search_string = self.string
+
+        predicted_id = search_wikidata(self.search_string, self.excluded_types)
+        annotated = False
+
+        while annotated == False:
+            answer = input(
+                f"Is the QID for '{self.search_string}'  \n "
+                f"{predicted_id['id']} - {predicted_id['label']} "
+                f"({predicted_id['description']}) ? (y/n) "
+            )
+
+            if answer == "y":
+                self.master_dict[self.dict_name][self.dict_key] = predicted_id["id"]
+                annotated = True
+            elif answer == "n":
+                search = input("Search Wikidata? (y/n/skip/create)")
+                if search == "y":
+                    go_to_wikidata(search_string)
+                elif search == "skip":
+                    break
+                elif search == "create":
+                  new_item_config = self.new_item_config
+                  new_item_config.render_quickstatements()
+                  print(new_item_config.quickstatements)
+                  break
+                qid = input(f"What is the qid for: '{search_string}' ? ")
+                self.master_dict[self.dict_name][self.dict_key] = qid
+                annotated = True
+
+            else:
+                print("Answer must be either 'y', 'n' ")
+
+    def save_dict(self):
+        self.path.joinpath(f"{self.dict_name}.json").write_text(
+            json.dumps(self.master_dict[self.dict_name], indent=4, sort_keys=True)
+        )
 
 
 def main():
     query_wikidata("SELECT * WHERE {?s ?p ?o} LIMIT 10 ")
+
+
+def convert_date_to_quickstatements(date, format="%Y-%m-%d"):
+    """Converts a date to Quickstatements format using the datetime package."""
+    return strftime("+%Y-%m-%dT00:00:00Z/11", strptime(date, format))
 
 
 def chunk(arr_range, arr_size):
@@ -126,7 +246,6 @@ def get_label_and_description(qid, lang="en"):
         f'FILTER (LANG (?label) = "{lang}")'
         "OPTIONAL {"
         f"wd:{qid} schema:description ?description . "
-
         f'FILTER (LANG (?description) = "{lang}")'
         "}"
         "}"
