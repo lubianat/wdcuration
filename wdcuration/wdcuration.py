@@ -14,45 +14,74 @@ import json
 from dataclasses import dataclass, field
 from typing import List
 
+
+def detect_direct_links(list_of_qids, link_phrase="wdt:P279*"):
+    """ Detects and returns pairs from a list of Wikidata QIDs 
+    with links to each other. 
+    The base link if "wdt:P279*" which covers indirect and direct subclasses (P279*).
+
+    
+    Args:
+      list_of_qids (list): A list of Wikidata QIDs.
+      link_phrase (str): The link to be searched between the entities. Defaults to "wdt:P279*"
+    """
+    clean_list = [x for x in list_of_qids if str(x) != "nan"]
+
+    formatted_qids = "{ wd:" + " wd:".join(clean_list) + "}"
+    query = f"""
+  SELECT 
+    (REPLACE(STR(?a_), ".*Q", "Q") AS ?a) 
+    (REPLACE(STR(?b_), ".*Q", "Q") AS ?b) 
+
+  WHERE
+{{
+  
+  VALUES ?a_ {formatted_qids} .
+  VALUES ?b_ {formatted_qids} .
+  FILTER (?a_ != ?b_)
+  ?a_ {link_phrase}?b_ . 
+  }}"""
+    return query_wikidata(query)
 @dataclass
 class NewItemConfig:
-  """ A class containing the information for a new item
-  
-  Attributes:
-    labels: A dictionary of labels in the format {"langcode": "label"}
-    descriptions: A dictionary of descriptions in the format {"langcode": "description"}
-    id_property: The property for the target ID for the item, if available. 
-    id_value:  The value for the target id. 
-  """
+    """A class containing the information for a new item
 
-  labels: dict
-  descriptions: dict 
-  item_property_value_pairs: dict = field(default_factory=lambda:  {})
-  id_property: str = ""
-  id_value: str = ""
-  quickstatements = ""
+    Attributes:
+      labels: A dictionary of labels in the format {"langcode": "label"}
+      descriptions: A dictionary of descriptions in the format {"langcode": "description"}
+      id_property: The property for the target ID for the item, if available.
+      id_value:  The value for the target id.
+    """
 
-  def render_quickstatements(self):
-      qs = """CREATE
+    labels: dict
+    descriptions: dict
+    item_property_value_pairs: dict = field(default_factory=lambda: {})
+    id_property_value_pairs: dict = field(default_factory=lambda: {})
+    quickstatements = ""
+
+    def render_quickstatements(self):
+        qs = """CREATE
       """
-      for k,v in self.labels.items():
-        qs += f"""
+        for k, v in self.labels.items():
+            qs += f"""
       LAST|L{k}|"{v}" """
 
-      for k,v in self.descriptions.items():
-        qs += f"""
+        for k, v in self.descriptions.items():
+            qs += f"""
       LAST|D{k}|"{v}" """
 
-      for k,v in self.item_property_value_pairs.items:
-          qs += f"""
-      LAST|{k}|{v} """
-      
+        for k, v in self.item_property_value_pairs.items():
+            for value in v:
+                qs += f"""
+        LAST|{k}|{value} """
+        for k, v in self.id_property_value_pairs.items():
+            for value in v:
+                qs += f"""
+        LAST|{k}|"{value}" """
 
-      if id_property != "":
-        qs += f"""
-      LAST|{id_property}|{id_value}
-        """
-      self.quickstatements = qs
+        self.quickstatements = qs
+
+
 @dataclass
 class WikidataDictAndKey:
     """
@@ -73,14 +102,14 @@ class WikidataDictAndKey:
     master_dict: dict
     dict_name: str
     path: Path
-    new_item_config = None
+    new_item_config: NewItemConfig
     string: str = ""
     dict_key: str = ("",)
     search_string: str = ""
     format_function = str
     excluded_types: List = field(default_factory=lambda: ["Q13442814"])
 
-    def add_key(self):
+    def add_key(self, return_qs=False):
         """
         Prompts the user for adding a key to the target dictionary.
         """
@@ -106,20 +135,45 @@ class WikidataDictAndKey:
             elif answer == "n":
                 search = input("Search Wikidata? (y/n/skip/create)")
                 if search == "y":
-                    go_to_wikidata(search_string)
+                    go_to_wikidata(self.search_string)
+                if search == "n" or search == "y":
+                    qid_input = False
+                    while qid_input == False:
+                        qid = input(
+                            f"What is the qid for: '{self.search_string}' ? (QXX/skip/create) "
+                        )
+                        if "Q" in qid:
+                            self.master_dict[self.dict_name][self.dict_key] = qid
+                            qid_input = True
+                        if qid == "skip":
+                            break
+                        elif qid == "create":
+                            new_item_config = self.new_item_config
+                            new_item_config.render_quickstatements()
+                            if return_qs:
+                                return new_item_config.quickstatements
+                            print(new_item_config.quickstatements)
+                            print(render_qs_url(new_item_config.quickstatements))
+
+                            break
+                    annotated = True
                 elif search == "skip":
                     break
                 elif search == "create":
-                  new_item_config = self.new_item_config
-                  new_item_config.render_quickstatements()
-                  print(new_item_config.quickstatements)
-                  break
-                qid = input(f"What is the qid for: '{search_string}' ? ")
-                self.master_dict[self.dict_name][self.dict_key] = qid
-                annotated = True
+                    new_item_config = self.new_item_config
+                    new_item_config.render_quickstatements()
+                    if return_qs:
+                        return new_item_config.quickstatements
+                    print(new_item_config.quickstatements)
+                    print(render_qs_url(new_item_config.quickstatements))
+
+                    break
 
             else:
                 print("Answer must be either 'y', 'n' ")
+            return ""
+        if return_qs:
+            return ""
 
     def save_dict(self):
         self.path.joinpath(f"{self.dict_name}.json").write_text(
@@ -142,7 +196,7 @@ def chunk(arr_range, arr_size):
     return iter(lambda: tuple(islice(arr_range, arr_size)), ())
 
 
-def lookup_multiple_ids(list_of_ids, wikidata_property):
+def lookup_multiple_ids(list_of_ids, wikidata_property, return_type="dict"):
     """
     Looks up multiple IDs on Wikidata and returns a dict containing them and the QIDs.
     """
@@ -154,8 +208,10 @@ def lookup_multiple_ids(list_of_ids, wikidata_property):
             result_dict.update(current_dict)
             sleep(0.3)
 
-        return result_dict
-
+        if return_type == "dict":
+            return result_dict
+        if return_type == "list":
+            return list(result_dict.values())
     formatted_ids = '""'.join(list_of_ids)
     query = (
         """
@@ -173,7 +229,10 @@ def lookup_multiple_ids(list_of_ids, wikidata_property):
     result_dict = {}
     for entry in query_result:
         result_dict[entry["id"]] = entry["qid"]
-    return result_dict
+    if return_type == "dict":
+        return result_dict
+    if return_type == "list":
+        return list(result_dict.values())
 
 
 def today_in_quickstatements():
