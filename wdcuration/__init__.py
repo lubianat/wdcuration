@@ -24,4 +24,9 @@ from .wdcuration import (
     divide_in_chunks_of_equal_len,
 )
 
-from .async_test import run_multiple_searches
+from .sheet_based_curation import (
+    run_multiple_searches,
+    get_quickstatements_for_curated_sheet,
+    print_quickstatements_for_curated_sheet,
+    generate_curation_spreadsheet,
+)

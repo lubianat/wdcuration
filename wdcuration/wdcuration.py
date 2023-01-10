@@ -31,7 +31,7 @@ def get_wikidata_items_for_id(identifier_property):
 
     existing_terms_dict = {}
     for a in existing_terms_output:
-        existing_terms_dict[a["id"]] = a["qid"]
+        existing_terms_dict[str(a["id"])] = a["qid"]
 
     return existing_terms_dict
 
@@ -311,7 +311,7 @@ def parse_wikidata_result(wikidata_result):
     first_item = wikidata_result["query"]["search"][0]
     qid = first_item["title"]
 
-    label_and_description = get_label_and_description(qid, lang="en")[0]
+    label_and_description = get_label_and_description(qid, lang="en")
 
     return {
         "id": qid,
@@ -321,24 +321,47 @@ def parse_wikidata_result(wikidata_result):
     }
 
 
-def get_label_and_description(qid, lang="en"):
-    label_and_description_query = (
-        """
-    SELECT ?label ?description
-    WHERE 
-    {"""
-        f"wd:{qid} rdfs:label ?label . "
-        f'FILTER (LANG (?label) = "{lang}")'
-        "OPTIONAL {"
-        f"wd:{qid} schema:description ?description . "
-        f'FILTER (LANG (?description) = "{lang}")'
-        "}"
-        "}"
-    )
-    label_and_description = query_wikidata(label_and_description_query)
-    if len(label_and_description) == 0:
-        label_and_description = [{"label": "NONE", "description": "NONE"}]
-    return label_and_description
+def get_label_and_description(qid, lang="en", method="wikidata_api"):
+
+    if method == "wikidata_api":
+        url = f"https://www.wikidata.org/w/api.php?action=wbgetentities&props=labels|descriptions&ids={qid}&languages={lang}&format=json"
+        r = requests.get(url)
+        data = r.json()
+        try:
+            return {
+                "label": data["entities"][qid]["labels"][lang]["value"],
+                "description": data["entities"][qid]["descriptions"][lang]["value"],
+            }
+        except KeyError:
+            return {"label": "NONE", "DESCRIPTION": "NONE"}
+
+    if method == "json_dump":
+        url = f"https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
+        r = requests.get(url)
+        data = r.json()
+        return {
+            "label": data["entities"][qid]["labels"][lang]["value"],
+            "description": data["entities"][qid]["descriptions"][lang]["value"],
+        }
+
+    if method == "sparql":
+        label_and_description_query = (
+            """
+      SELECT ?label ?description
+      WHERE 
+      {"""
+            f"wd:{qid} rdfs:label ?label . "
+            f'FILTER (LANG (?label) = "{lang}")'
+            "OPTIONAL {"
+            f"wd:{qid} schema:description ?description . "
+            f'FILTER (LANG (?description) = "{lang}")'
+            "}"
+            "}"
+        )
+        label_and_description = query_wikidata(label_and_description_query)
+        if len(label_and_description) == 0:
+            label_and_description = [{"label": "NONE", "description": "NONE"}]
+        return label_and_description[0]
 
 
 def go_to_wikidata(search_term):

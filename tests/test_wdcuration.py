@@ -21,6 +21,17 @@ class TestWdcuration(unittest.TestCase):
         result = wd.wdcuration.get_statement_values("Q283350", "P31", label=True)
         assert target == result
 
+    def test_get_label_and_description(self):
+        target = {"label": "The Blob", "description": "1958 film by Irvin Yeaworth"}
+        result = wd.wdcuration.get_label_and_description("Q224964")
+        assert target == result
+        result = wd.wdcuration.get_label_and_description("Q224964", method="json_dump")
+        assert target == result
+        result = wd.wdcuration.get_label_and_description(
+            "Q224964", method="wikidata_api"
+        )
+        assert target == result
+
     def tearDown(self):
         """Tear down test fixtures, if any."""
 
