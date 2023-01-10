@@ -2,7 +2,6 @@
 from pathlib import Path
 from tokenize import String
 from typing import OrderedDict
-import clipboard
 import requests
 from urllib.parse import quote
 from SPARQLWrapper import SPARQLWrapper, JSON
@@ -15,12 +14,33 @@ from dataclasses import dataclass, field
 from typing import List
 
 
+# Wikidata lookups via SPARQL
+
+
+def get_wikidata_items_for_id(identifier_property):
+    """
+    Returns and ID:QID dictionary for all occurences of a certain identifier on Wikidata.
+    Might time-out for heavily used identifiers.
+
+    Args:
+      identifier_property: The identifier property to be used on Wikidata. E.g. "P7963".
+    """
+    existing_terms_output = query_wikidata(
+        f'  SELECT DISTINCT ?id   (REPLACE(STR(?item), ".*Q", "Q") AS ?qid)  WHERE {{ ?item wdt:{identifier_property} ?id . }} '
+    )
+
+    existing_terms_dict = {}
+    for a in existing_terms_output:
+        existing_terms_dict[a["id"]] = a["qid"]
+
+    return existing_terms_dict
+
+
 def detect_direct_links(list_of_qids, link_phrase="wdt:P279*"):
-    """ Detects and returns pairs from a list of Wikidata QIDs 
-    with links to each other. 
+    """Detects and returns pairs from a list of Wikidata QIDs
+    with links to each other.
     The base link if "wdt:P279*" which covers indirect and direct subclasses (P279*).
 
-    
     Args:
       list_of_qids (list): A list of Wikidata QIDs.
       link_phrase (str): The link to be searched between the entities. Defaults to "wdt:P279*"
@@ -42,6 +62,319 @@ def detect_direct_links(list_of_qids, link_phrase="wdt:P279*"):
   ?a_ {link_phrase}?b_ . 
   }}"""
     return query_wikidata(query)
+
+
+def lookup_label(qid, lang="en", default=""):
+    """
+    Looks up a label on Wikidata given a QID.
+    """
+
+    sparql = SPARQLWrapper(
+        "https://query.wikidata.org/sparql",
+        agent="wdcuration (https://github.com/lubianat/wdcuration)",
+    )
+    query = f"""
+    SELECT ?item ?itemLabel
+    WHERE
+    {{
+        {qid} rdfs:label ?itemLabel. 
+        FILTER (LANG (?itemLabel) = "{lang}")
+    }}
+    """
+    bindings = query_wikidata(query)
+    if len(bindings) == 1:
+        item = bindings[0]["itemLabel"].split("/")[-1]
+        return item
+    else:
+        return default
+
+
+def get_statement_values(qid, property, label=False):
+    """
+    Return the values for a Wikidata QID + PID pair as a Python list.
+    """
+
+    if label:
+        label_projection = "?valueLabel"
+        label_line = (
+            "?value rdfs:label ?valueLabel . FILTER (LANG (?valueLabel) = 'en')"
+        )
+    else:
+        label_projection = ""
+        label_line = ""
+    query = f"""
+    SELECT ?value {label_projection}
+    WHERE
+    {{
+        wd:{qid} wdt:{property} ?value .
+        {label_line}
+    }}
+    """
+
+    bindings = query_wikidata(query)
+    value_list = []
+    for binding in bindings:
+        if label:
+            value_list.append(
+                {
+                    "id": binding["value"].split("/")[-1],
+                    "label": binding["valueLabel"],
+                }
+            )
+
+        else:
+            value_list.append(binding["value"])
+    return value_list
+
+
+def query_wikidata(
+    query,
+    endpoint="https://query.wikidata.org/sparql",
+    agent="wdcuration (https://github.com/lubianat/wdcuration)",
+    simplify=True,
+):
+    """A simple function to query Wikidata and return a python dictionary"""
+    sparql = SPARQLWrapper(endpoint=endpoint, agent=agent)
+    sparql.setQuery(query)
+
+    sparql.setReturnFormat(JSON)
+    results = sparql.query().convert()
+    bindings = results["results"]["bindings"]
+
+    if simplify:
+        return_value = []
+
+        for binding in bindings:
+            entry = {}
+            for key, value in binding.items():
+                entry[key] = value["value"]
+            return_value.append(entry)
+        return return_value
+    else:
+        return bindings
+
+
+def lookup_id(id, property, default=""):
+    """
+    Looks up a foreign ID on Wikidata based on its specific property.
+
+    Args:
+      id (str): The value of the ID as encoded on Wikidata.
+      property (str): The property used to link to that ID .
+      default (str): What to return if no unique ID is present. Defaults to "".
+
+    Returns:
+      str: The Wikidata QID for the foreign ID or "".
+    """
+
+    sparql = SPARQLWrapper(
+        "https://query.wikidata.org/sparql",
+        agent="wdcuration (https://github.com/lubianat/wdcuration)",
+    )
+    query = f"""
+    SELECT ?item ?itemLabel
+    WHERE
+    {{
+        ?item wdt:{property} "{id}" .
+    }}
+    """
+    sparql.setQuery(query)
+
+    sparql.setReturnFormat(JSON)
+    results = sparql.query().convert()
+    bindings = results["results"]["bindings"]
+    if len(bindings) == 1:
+        item = bindings[0]["item"]["value"].split("/")[-1]
+        return item
+    else:
+        return default
+
+
+def lookup_multiple_ids(list_of_ids, wikidata_property, return_type="dict"):
+    """
+    Looks up multiple IDs on Wikidata and returns a dict containing them and the QIDs.
+    """
+    if len(list_of_ids) > 200:
+        list_of_smaller_lists_of_ids = chunk(list_of_ids, 200)
+        result_dict = {}
+        for small_list in tqdm(list_of_smaller_lists_of_ids):
+            current_dict = lookup_multiple_ids(small_list, wikidata_property)
+            result_dict.update(current_dict)
+            sleep(0.3)
+
+        if return_type == "dict":
+            return result_dict
+        if return_type == "list":
+            return list(result_dict.values())
+    formatted_ids = '""'.join(list_of_ids)
+    query = (
+        """
+  SELECT  
+  (REPLACE(STR(?item), ".*Q", "Q") AS ?qid) 
+  ?id 
+  WHERE { """
+        f'VALUES ?id {{ "{formatted_ids}" }} . '
+        f"?item wdt:{wikidata_property} ?id . "
+        """
+  }
+  """
+    )
+    query_result = query_wikidata(query)
+    result_dict = {}
+    for entry in query_result:
+        result_dict[entry["id"]] = entry["qid"]
+    if return_type == "dict":
+        return result_dict
+    if return_type == "list":
+        return list(result_dict.values())
+
+
+# Other Wikidata-related searches, mostly using Cirrus Search
+
+
+def search_wikidata(
+    search_term,
+    excluded_types=[],
+    fixed_type=None,
+    exclude_basic=True,
+):
+    """
+    Looks up string on Wikidata
+    """
+
+    basic_exclusion = list(
+        {
+            "Q26842193": "journal",
+            "Q5633421": "scientific journal",
+            "Q737498": "academic journal",
+            "Q7725634": "literary work",
+            "Q47461344": "written work",
+            "Q101352": "family name",
+            "Q13442814": "scholarly article",
+            "Q732577": "publication",
+            "Q3331189": "version, edition or translation",
+            "Q187685": "doctoral thesis",
+            "Q1266946": "thesis",
+            "Q4167410": "disambiguation page",
+            "Q3754629": "taxon",
+            "Q4167836": "Wikimedia category",
+            "Q30612": "clinical trial",
+            "Q215380": "musical group",
+            "Q482994": "musical album",
+            "Q105543609": "musical work",
+            "Q5": "human",
+            "Q838795": "comic strip",
+        }.keys()
+    )
+    excluded_types_local = excluded_types
+
+    # Workaround to avoid accumulation. Not sure why, but they are accumulating.
+    excluded_types_local = list(set(excluded_types_local))
+
+    if exclude_basic == True:
+        for excluded_type in basic_exclusion:
+            excluded_types_local.append(excluded_type)  # Disambiguation page
+
+    for excluded_type in excluded_types_local:
+        search_term += f" -haswbstatement:P31={excluded_type} "
+    if fixed_type is not None:
+        search_term += f" haswbstatement:P31={fixed_type} "
+
+    base_url = "https://www.wikidata.org/w/api.php"
+    payload = {
+        "action": "query",
+        "list": "search",
+        "srsearch": search_term,
+        "language": "en",
+        "format": "json",
+        "origin": "*",
+    }
+
+    res = requests.get(base_url, params=payload)
+
+    parsed_res = parse_wikidata_result(res)
+    return parsed_res
+
+
+def parse_wikidata_result(wikidata_result):
+
+    base_result = {
+        "id": "NONE",
+        "label": "NONE",
+        "description": "NONE",
+        "url": f"https://www.wikidata.org/wiki/NONE",
+    }
+    wikidata_result = wikidata_result.json()
+    # Workaround for when finding no results
+    if len(wikidata_result["query"]["search"]) == 0:
+        return base_result
+
+    first_item = wikidata_result["query"]["search"][0]
+    qid = first_item["title"]
+
+    label_and_description = get_label_and_description(qid, lang="en")[0]
+
+    return {
+        "id": qid,
+        "label": label_and_description["label"],
+        "description": label_and_description.get("description", "no description"),
+        "url": f"https://www.wikidata.org/wiki/{qid}",
+    }
+
+
+def get_label_and_description(qid, lang="en"):
+    label_and_description_query = (
+        """
+    SELECT ?label ?description
+    WHERE 
+    {"""
+        f"wd:{qid} rdfs:label ?label . "
+        f'FILTER (LANG (?label) = "{lang}")'
+        "OPTIONAL {"
+        f"wd:{qid} schema:description ?description . "
+        f'FILTER (LANG (?description) = "{lang}")'
+        "}"
+        "}"
+    )
+    label_and_description = query_wikidata(label_and_description_query)
+    if len(label_and_description) == 0:
+        label_and_description = [{"label": "NONE", "description": "NONE"}]
+    return label_and_description
+
+
+def go_to_wikidata(search_term):
+    """
+    Open the browser for manual search on Wikidata
+    """
+    url = "https://www.wikidata.org/w/index.php?search=" + quote(search_term)
+    webbrowser.open_new_tab(url)
+
+
+# Quickstatements management
+
+
+def convert_date_to_quickstatements(date, format="%Y-%m-%d"):
+    """Converts a date to Quickstatements format using the datetime package."""
+    return strftime("+%Y-%m-%dT00:00:00Z/11", strptime(date, format))
+
+
+def today_in_quickstatements():
+    """
+    Return todays date in quickstatements format.
+    """
+    return strftime("+%Y-%m-%dT00:00:00Z/11", gmtime())
+
+
+def render_qs_url(qs):
+    """
+    Render an URL targeting Quickstatements.
+    """
+    quoted_qs = quote(qs.replace("\t", "|").replace("\n", "||"), safe="")
+    url = f"https://quickstatements.toolforge.org/#/v1={quoted_qs}\\"
+    return url
+
+
+# Dict handling
 @dataclass
 class NewItemConfig:
     """A class containing the information for a new item
@@ -181,138 +514,6 @@ class WikidataDictAndKey:
         )
 
 
-def main():
-    query_wikidata("SELECT * WHERE {?s ?p ?o} LIMIT 10 ")
-
-
-def convert_date_to_quickstatements(date, format="%Y-%m-%d"):
-    """Converts a date to Quickstatements format using the datetime package."""
-    return strftime("+%Y-%m-%dT00:00:00Z/11", strptime(date, format))
-
-
-def chunk(arr_range, arr_size):
-    """Breaks up a list into a list of lists"""
-    arr_range = iter(arr_range)
-    return iter(lambda: tuple(islice(arr_range, arr_size)), ())
-
-
-def lookup_multiple_ids(list_of_ids, wikidata_property, return_type="dict"):
-    """
-    Looks up multiple IDs on Wikidata and returns a dict containing them and the QIDs.
-    """
-    if len(list_of_ids) > 200:
-        list_of_smaller_lists_of_ids = chunk(list_of_ids, 200)
-        result_dict = {}
-        for small_list in tqdm(list_of_smaller_lists_of_ids):
-            current_dict = lookup_multiple_ids(small_list, wikidata_property)
-            result_dict.update(current_dict)
-            sleep(0.3)
-
-        if return_type == "dict":
-            return result_dict
-        if return_type == "list":
-            return list(result_dict.values())
-    formatted_ids = '""'.join(list_of_ids)
-    query = (
-        """
-  SELECT  
-  (REPLACE(STR(?item), ".*Q", "Q") AS ?qid) 
-  ?id 
-  WHERE { """
-        f'VALUES ?id {{ "{formatted_ids}" }} . '
-        f"?item wdt:{wikidata_property} ?id . "
-        """
-  }
-  """
-    )
-    query_result = query_wikidata(query)
-    result_dict = {}
-    for entry in query_result:
-        result_dict[entry["id"]] = entry["qid"]
-    if return_type == "dict":
-        return result_dict
-    if return_type == "list":
-        return list(result_dict.values())
-
-
-def today_in_quickstatements():
-    """
-    Return todays date in quickstatements format.
-    """
-    return strftime("+%Y-%m-%dT00:00:00Z/11", gmtime())
-
-
-def go_to_wikidata(search_term):
-    """
-    Open the browser for manual search on Wikidata
-    """
-    url = "https://www.wikidata.org/w/index.php?search=" + quote(search_term)
-    webbrowser.open_new_tab(url)
-
-
-def search_wikidata(search_term, excluded_types: list = ["Q13442814"]):
-    """
-    Looks up string on Wikidata
-    """
-
-    for excluded_type in excluded_types:
-        search_term += f" -haswbstatement:P31={excluded_type} "
-
-    base_url = "https://www.wikidata.org/w/api.php"
-    payload = {
-        "action": "query",
-        "list": "search",
-        "srsearch": search_term,
-        "language": "en",
-        "format": "json",
-        "origin": "*",
-    }
-    res = requests.get(base_url, params=payload)
-
-    parsed_res = parse_wikidata_result(res.json())
-    return parsed_res
-
-
-def parse_wikidata_result(wikidata_result):
-
-    # Workaround for when finding no results
-    if len(wikidata_result["query"]["search"]) == 0:
-        return {
-            "id": "NONE",
-            "label": "NONE",
-            "description": "NONE",
-            "url": f"https://www.wikidata.org/wiki/NONE",
-        }
-
-    first_item = wikidata_result["query"]["search"][0]
-    qid = first_item["title"]
-    label_and_description = get_label_and_description(qid, lang="en")[0]
-    return {
-        "id": qid,
-        "label": label_and_description["label"],
-        "description": label_and_description.get("description", "no description"),
-        "url": f"https://www.wikidata.org/wiki/{qid}",
-    }
-
-
-def get_label_and_description(qid, lang="en"):
-    label_and_description_query = (
-        """
-    SELECT ?label ?description
-    WHERE 
-    {"""
-        f"wd:{qid} rdfs:label ?label . "
-        f'FILTER (LANG (?label) = "{lang}")'
-        "OPTIONAL {"
-        f"wd:{qid} schema:description ?description . "
-        f'FILTER (LANG (?description) = "{lang}")'
-        "}"
-        "}"
-    )
-    label_and_description = query_wikidata(label_and_description_query)
-    return label_and_description
-
-
 def check_and_save_dict(
     master_dict,
     dict_name,
@@ -388,140 +589,10 @@ def add_key(
     return dictionary
 
 
-def render_qs_url(qs):
-    """
-    Render an URL targeting Quickstatements.
-    """
-    quoted_qs = quote(qs.replace("\t", "|").replace("\n", "||"), safe="")
-    url = f"https://quickstatements.toolforge.org/#/v1={quoted_qs}\\"
-    return url
+# Other
 
 
-def lookup_id(id, property, default=""):
-    """
-    Looks up a foreign ID on Wikidata based on its specific property.
-
-    Args:
-      id (str): The value of the ID as encoded on Wikidata.
-      property (str): The property used to link to that ID .
-      default (str): What to return if no unique ID is present. Defaults to "".
-
-    Returns:
-      str: The Wikidata QID for the foreign ID or "".
-    """
-
-    sparql = SPARQLWrapper(
-        "https://query.wikidata.org/sparql",
-        agent="wdcuration (https://github.com/lubianat/wdcuration)",
-    )
-    query = f"""
-    SELECT ?item ?itemLabel
-    WHERE
-    {{
-        ?item wdt:{property} "{id}" .
-    }}
-    """
-    sparql.setQuery(query)
-
-    sparql.setReturnFormat(JSON)
-    results = sparql.query().convert()
-    bindings = results["results"]["bindings"]
-    if len(bindings) == 1:
-        item = bindings[0]["item"]["value"].split("/")[-1]
-        return item
-    else:
-        return default
-
-
-def lookup_label(qid, lang="en", default=""):
-    """
-    Looks up a label on Wikidata given a QID.
-    """
-
-    sparql = SPARQLWrapper(
-        "https://query.wikidata.org/sparql",
-        agent="wdcuration (https://github.com/lubianat/wdcuration)",
-    )
-    query = f"""
-    SELECT ?item ?itemLabel
-    WHERE
-    {{
-        {qid} rdfs:label ?itemLabel. 
-        FILTER (LANG (?itemLabel) = "{lang}")
-    }}
-    """
-    bindings = query_wikidata(query)
-    if len(bindings) == 1:
-        item = bindings[0]["itemLabel"].split("/")[-1]
-        return item
-    else:
-        return default
-
-
-def get_statement_values(qid, property, label=False):
-    """
-    Return the values for a Wikidata QID + PID pair as a Python list.
-    """
-
-    if label:
-        label_projection = "?valueLabel"
-        label_line = (
-            "?value rdfs:label ?valueLabel . FILTER (LANG (?valueLabel) = 'en')"
-        )
-    else:
-        label_projection = ""
-        label_line = ""
-    query = f"""
-    SELECT ?value {label_projection}
-    WHERE
-    {{
-        wd:{qid} wdt:{property} ?value .
-        {label_line}
-    }}
-    """
-
-    bindings = query_wikidata(query)
-    value_list = []
-    for binding in bindings:
-        if label:
-            value_list.append(
-                {
-                    "id": binding["value"].split("/")[-1],
-                    "label": binding["valueLabel"],
-                }
-            )
-
-        else:
-            value_list.append(binding["value"])
-    return value_list
-
-
-def query_wikidata(
-    query,
-    endpoint="https://query.wikidata.org/sparql",
-    agent="wdcuration (https://github.com/lubianat/wdcuration)",
-    simplify=True,
-):
-    """A simple function to query Wikidata and return a python dictionary"""
-    sparql = SPARQLWrapper(endpoint=endpoint, agent=agent)
-    sparql.setQuery(query)
-
-    sparql.setReturnFormat(JSON)
-    results = sparql.query().convert()
-    bindings = results["results"]["bindings"]
-
-    if simplify:
-        return_value = []
-
-        for binding in bindings:
-            entry = {}
-            for key, value in binding.items():
-                entry[key] = value["value"]
-            return_value.append(entry)
-        return return_value
-    else:
-        return bindings
-
-
-if __name__ == "__main__":
-    main()
+def chunk(arr_range, arr_size):
+    """Breaks up a list into a list of lists"""
+    arr_range = iter(arr_range)
+    return iter(lambda: tuple(islice(arr_range, arr_size)), ())
