@@ -292,7 +292,7 @@ def search_wikidata(
 
     res = requests.get(base_url, params=payload)
 
-    parsed_res = parse_wikidata_result(res)
+    parsed_res = parse_wikidata_result(res.json())
     return parsed_res
 
 
@@ -304,7 +304,6 @@ def parse_wikidata_result(wikidata_result):
         "description": "NONE",
         "url": f"https://www.wikidata.org/wiki/NONE",
     }
-    wikidata_result = wikidata_result.json()
     # Workaround for when finding no results
     if len(wikidata_result["query"]["search"]) == 0:
         return base_result
@@ -590,6 +589,11 @@ def add_key(
 
 
 # Other
+
+
+def divide_in_chunks_of_equal_len(arr_range, arr_size):
+    """Breaks up a list into a list of lists"""
+    return chunk(arr_range, arr_size)
 
 
 def chunk(arr_range, arr_size):

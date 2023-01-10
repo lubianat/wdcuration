@@ -15,7 +15,13 @@ from .wdcuration import (
     get_statement_values,
     lookup_multiple_ids,
     query_wikidata,
+    get_wikidata_items_for_id,
+    detect_direct_links,
     check_and_save_dict,
     WikidataDictAndKey,
     NewItemConfig,
+    parse_wikidata_result,
+    divide_in_chunks_of_equal_len,
 )
+
+from .async_test import run_multiple_searches
