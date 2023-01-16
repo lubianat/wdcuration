@@ -29,4 +29,5 @@ from .sheet_based_curation import (
     get_quickstatements_for_curated_sheet,
     print_quickstatements_for_curated_sheet,
     generate_curation_spreadsheet,
+    get_subset_not_on_wikidata,
 )
