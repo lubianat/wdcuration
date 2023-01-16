@@ -7,8 +7,6 @@ import time
 from tqdm import tqdm
 import inflect
 import pandas as pd
-import json
-from pathlib import Path
 from wdcuration import (
     get_wikidata_items_for_id,
     divide_in_chunks_of_equal_len,
@@ -221,17 +219,9 @@ def generate_curation_spreadsheet(
     drop_nones=True,
     exclude_basic=False,
 ):
-    terms_on_wikidata = get_wikidata_items_for_id(identifiers_property)
-    full_df = pd.read_csv(
-        curation_table_path, on_bad_lines="skip", dtype={"id": object}
+    not_on_wikidata = get_subset_not_on_wikidata(
+        identifiers_property, curation_table_path, description_term_lookup
     )
-    full_df = full_df.dropna(subset=["description"])
-    df_subset = full_df.query(
-        f"description.str.contains('{description_term_lookup}')",
-        engine="python",
-    )
-    df_subset["id"] = [a.strip() for a in df_subset["id"]]
-    not_on_wikidata = df_subset[~df_subset.id.isin(terms_on_wikidata.keys())]
 
     p = inflect.engine()
     search_terms_dict = {}
@@ -283,3 +273,20 @@ def generate_curation_spreadsheet(
         not_on_wikidata = not_on_wikidata[not_on_wikidata["wikidata_id"] != "NONE"]
     not_on_wikidata = not_on_wikidata.drop_duplicates()
     not_on_wikidata.to_csv(output_file_path, index=False)
+
+
+def get_subset_not_on_wikidata(
+    identifiers_property, curation_table_path, description_term_lookup
+):
+    terms_on_wikidata = get_wikidata_items_for_id(identifiers_property)
+    full_df = pd.read_csv(
+        curation_table_path, on_bad_lines="skip", dtype={"id": object}
+    )
+    full_df = full_df.dropna(subset=["description"])
+    df_subset = full_df.query(
+        f"description.str.contains('{description_term_lookup}')",
+        engine="python",
+    )
+    df_subset["id"] = [a.strip() for a in df_subset["id"]]
+    not_on_wikidata = df_subset[~df_subset.id.isin(terms_on_wikidata.keys())]
+    return not_on_wikidata
