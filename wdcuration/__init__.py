@@ -2,7 +2,7 @@
 
 __author__ = """Tiago Lubiana"""
 __email__ = "tiago.lubiana.alves@usp.br"
-__version__ = "0.1.3"
+__version__ = "0.2.0"
 
 from .wdcuration import (
     query_wikidata,
