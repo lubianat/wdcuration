@@ -19,7 +19,7 @@ requirements = [
     "aiohttp",
 ]
 
-test_requirements = []
+test_requirements = ["pytest"]
 
 setup(
     author="Tiago Lubiana",
@@ -43,8 +43,7 @@ setup(
     keywords="wdcuration",
     name="wdcuration",
     packages=find_packages(include=["wdcuration", "wdcuration.*"]),
-    test_suite="tests",
-    tests_require=test_requirements,
+    extras_require={"tests": test_requirements},
     url="https://github.com/lubianat/wdcuration",
     version="0.1.3",
     zip_safe=False,
