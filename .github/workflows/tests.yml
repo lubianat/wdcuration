@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+        branches: [master]
+    workflow_dispatch:
+
+jobs:
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: ["3.8", "3.9", "3.10", "3.11"]
+        steps:
+            - uses: actions/checkout@v2
+            - name: Set up Python ${{ "{{" }} matrix.python-version {{ "}}" }}
+              uses: actions/setup-python@v2
+              with:
+                  python-version: ${{ "{{" }} matrix.python-version {{ "}}" }}
+            - name: Install dependencies
+              run: |
+                  sudo apt-get install graphviz
+                  pip install tox
+            - name: Check manifest
+              run: tox run -e manifest
+            - name: Check code styling with black
+              run: tox run -e lint
+    tests:
+        name: Tests
+        runs-on: ${{ "{{" }} matrix.os {{ "}}" }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest]
+                python-version: ["3.8", "3.9", "3.10", "3.11"]
+        steps:
+            - uses: actions/checkout@v2
+            - name: Set up Python ${{ "{{" }} matrix.python-version {{ "}}" }}
+              uses: actions/setup-python@v2
+              with:
+                  python-version: ${{ "{{" }} matrix.python-version {{ "}}" }}
+            - name: Install dependencies
+              run: pip install tox
+            - name: Test with pytest and generate coverage file
+              run: tox run -e py
