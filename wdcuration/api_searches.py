@@ -72,7 +72,6 @@ def search_wikidata(
 
 
 def parse_wikidata_result(wikidata_result):
-
     base_result = {
         "id": "NONE",
         "label": "NONE",
@@ -97,7 +96,6 @@ def parse_wikidata_result(wikidata_result):
 
 
 def get_label_and_description(qid, lang="en", method="wikidata_api"):
-
     if method == "wikidata_api":
         url = f"https://www.wikidata.org/w/api.php?action=wbgetentities&props=labels|descriptions&ids={qid}&languages={lang}&format=json"
         r = requests.get(url)

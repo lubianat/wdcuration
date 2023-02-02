@@ -120,7 +120,6 @@ async def async_search_wikidata(
 
     url = base_url.replace("?&", "?")
     async with session.request("GET", url) as response:
-
         # Raise if the response code is >= 400.
         # Some 200 codes may still be "ok".
         # You can also pass raise_for_status within
@@ -227,7 +226,6 @@ def generate_curation_spreadsheet(
     search_terms_dict = {}
     search_terms = []
     for i, row in not_on_wikidata.iterrows():
-
         search_term = p.singular_noun(row["name"])
         if not search_term:
             search_term = row["name"]
