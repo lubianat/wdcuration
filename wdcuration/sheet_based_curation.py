@@ -1,16 +1,16 @@
 import asyncio
-from aiohttp import ClientSession
-from numpy import dtype
-from wdcuration import parse_wikidata_result, render_qs_url
-import pandas as pd
 import time
-from tqdm import tqdm
+
 import inflect
 import pandas as pd
-from wdcuration import (
-    get_wikidata_items_for_id,
-    divide_in_chunks_of_equal_len,
-)
+from aiohttp import ClientSession
+from numpy import dtype
+from tqdm import tqdm
+
+from wdcuration.api_searches import parse_wikidata_result
+from wdcuration.quickstatements import render_qs_url
+from wdcuration.sparql import get_wikidata_items_for_id
+from wdcuration.utils import divide_in_chunks_of_equal_len
 
 
 def print_quickstatements_for_curated_sheet(

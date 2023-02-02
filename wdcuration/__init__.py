@@ -4,30 +4,30 @@ __author__ = """Tiago Lubiana"""
 __email__ = "tiago.lubiana.alves@usp.br"
 __version__ = "0.2.0"
 
-from .wdcuration import (
-    query_wikidata,
-    search_wikidata,
-    add_key,
-    render_qs_url,
-    lookup_id,
-    today_in_quickstatements,
+from wdcuration.api_searches import add_key, parse_wikidata_result, search_wikidata
+from wdcuration.dict_handler import (
+    NewItemConfig,
+    WikidataDictAndKey,
+    check_and_save_dict,
+)
+from wdcuration.quickstatements import (
     convert_date_to_quickstatements,
+    render_qs_url,
+    today_in_quickstatements,
+)
+from wdcuration.sheet_based_curation import (
+    generate_curation_spreadsheet,
+    get_quickstatements_for_curated_sheet,
+    get_subset_not_on_wikidata,
+    print_quickstatements_for_curated_sheet,
+    run_multiple_searches,
+)
+from wdcuration.sparql import (
+    detect_direct_links,
     get_statement_values,
+    get_wikidata_items_for_id,
+    lookup_id,
     lookup_multiple_ids,
     query_wikidata,
-    get_wikidata_items_for_id,
-    detect_direct_links,
-    check_and_save_dict,
-    WikidataDictAndKey,
-    NewItemConfig,
-    parse_wikidata_result,
-    divide_in_chunks_of_equal_len,
 )
-
-from .sheet_based_curation import (
-    run_multiple_searches,
-    get_quickstatements_for_curated_sheet,
-    print_quickstatements_for_curated_sheet,
-    generate_curation_spreadsheet,
-    get_subset_not_on_wikidata,
-)
+from wdcuration.utils import divide_in_chunks_of_equal_len
