@@ -13,7 +13,6 @@ from wdcuration.sparql import (
 
 class TestWdcurationSPARQL(unittest.TestCase):
     def test_query_wikidata(self):
-
         basic_query = dedent(
             """
         SELECT ?item ?itemLabel WHERE { ?item wdt:P31 wd:Q146. }
@@ -27,7 +26,6 @@ class TestWdcurationSPARQL(unittest.TestCase):
         self.assertGreater(len(basic_res), 150)
 
     def test_get_wikidata_items_for_id(self):
-
         bioc_packages = get_wikidata_items_for_id("P10892")
 
         self.assertEqual(bioc_packages["DESeq2"], "Q113018293")
@@ -58,7 +56,6 @@ class TestWdcurationSPARQL(unittest.TestCase):
         self.assertEqual(result, target)
 
     def test_lookup_multiple_ids(self):
-
         ensg_ids = ["ENSG00000012048", "ENSRNOG00000020701"]
         target = {"ENSG00000012048": "Q227339", "ENSRNOG00000020701": "Q24381608"}
 
