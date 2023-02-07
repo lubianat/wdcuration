@@ -5,9 +5,24 @@ nav:
   - Home: index.md
   - Contributing: contributing.md
   - Code of Conduct: code_of_conduct.md
+  - Reference:
+    - Wikidata API Searches: reference/api_searches.md
+    - Quickstatements: reference/quickstatements.md
+    - SPARQL: reference/sparql.md
+    - Sheet-based curation: reference/sheet_based_curation.md
+    - Dictionary Handlers: reference/dict_handler.md
+    - Utilities: reference/utils.md
 repo_url: https://github.com/lubianat/wdcuration
 theme:
   name: "readthedocs"
+extra_css:
+  - assets/extra.css
 plugins:
   - search
-  - mkdocstrings
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_toc_entry: false
+            heading_level: 3
+
