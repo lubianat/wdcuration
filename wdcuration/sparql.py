@@ -13,7 +13,7 @@ def get_wikidata_items_for_id(identifier_property):
     Might time-out for heavily used identifiers.
 
     Args:
-      identifier_property: The identifier property to be used on Wikidata. E.g. "P7963".
+      identifier_property (str): The identifier property to be used on Wikidata. E.g. "P7963".
     """
     existing_terms_output = query_wikidata(
         f'  SELECT DISTINCT ?id   (REPLACE(STR(?item), ".*Q", "Q") AS ?qid)  WHERE {{ ?item wdt:{identifier_property} ?id . }} '
@@ -144,7 +144,7 @@ def query_wikidata(
         return bindings
 
 
-def lookup_id(id, property, default=""):
+def lookup_id(id, property, default="") -> str:
     """
     Looks up a foreign ID on Wikidata based on its specific property.
 

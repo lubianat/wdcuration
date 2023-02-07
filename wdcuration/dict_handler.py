@@ -56,7 +56,7 @@ class WikidataDictAndKey:
       master_dict: A dict of dicts, each of the inner dicts containing the keys mapped to Wikidata ids.
       dict_name: The name of the inner dict that the new key will be added.
       string: The key and search string to be added to the dict. It is overwritten by
-      "dict_key" and "search_string" when available.
+        "dict_key" and "search_string" when available.
       dict_key: The dict key to be added to the curation dictionary.
       search_string: A custom search string, when different from the dict key
       path: The Pathlib path to the folder where the dicts are stored.

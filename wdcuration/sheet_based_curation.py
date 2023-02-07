@@ -32,7 +32,7 @@ def get_quickstatements_for_curated_sheet(
       curated_sheet_path (str): The path to the sheet of interest.
       wikidata_property (str): The PID of the property to use on Quickstatements.
       dropnas (bool): Whether or not a curation column labeled "ok_row_ was added.
-      If true, will dropnas in the column. Useful when good matches are rare.
+        If true, will dropnas in the column. Useful when good matches are rare.
 
     """
     df = pd.read_csv(curated_sheet_path, dtype={"id": object})
