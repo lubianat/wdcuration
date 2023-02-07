@@ -1,0 +1,13 @@
+site_name: WdCuration
+site_description: Utilities for curating unstructured info into Wikidata
+site_author: Tiago Lubiana
+nav:
+  - Home: index.md
+  - Contributing: contributing.md
+  - Code of Conduct: code_of_conduct.md
+repo_url: https://github.com/lubianat/wdcuration
+theme:
+  name: "readthedocs"
+plugins:
+  - search
+  - mkdocstrings
