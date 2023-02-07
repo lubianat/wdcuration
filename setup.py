@@ -46,6 +46,6 @@ setup(
     packages=find_packages(include=["wdcuration", "wdcuration.*"]),
     extras_require={"tests": test_requirements, "docs": docs_requirements},
     url="https://github.com/lubianat/wdcuration",
-    version="0.2.0",
+    version="0.2.1",
     zip_safe=False,
 )
