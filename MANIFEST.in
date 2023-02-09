@@ -5,9 +5,10 @@ include LICENSE
 include README.rst
 
 recursive-include tests *
+recursive-exclude docs *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 
 recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
 global-exclude *.py[cod] __pycache__ *.so *.dylib .DS_Store *.gpickle
-exclude requirements_dev.txt Makefile .editorconfig tox.ini .bumpversion.cfg .readthedocs.yml .cruft.json
+exclude requirements_dev.txt Makefile .editorconfig tox.ini .bumpversion.cfg .readthedocs.yml .cruft.json mkdocs.yml

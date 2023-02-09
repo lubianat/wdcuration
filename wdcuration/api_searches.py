@@ -151,7 +151,7 @@ def add_key(
     dict_key="",
     search_string="",
     excluded_types: list = ["Q13442814"],
-):
+) -> dict:
     """
     Prompts the user for adding a key to the target dictionary.
     Args:
