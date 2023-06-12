@@ -31,3 +31,4 @@ from wdcuration.sparql import (
     query_wikidata,
 )
 from wdcuration.utils import divide_in_chunks_of_equal_len
+from wdcuration.wikipedia import get_qids_from_enwiki_pages
