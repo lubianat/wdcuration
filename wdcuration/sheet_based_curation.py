@@ -23,7 +23,7 @@ def print_quickstatements_for_curated_sheet(
 
 
 def get_quickstatements_for_curated_sheet(
-    curated_sheet_path, wikidata_property, dropnas=False
+    curated_sheet_path, wikidata_property, dropnas=False, add_name_as_alias=True, alias_lang = "en"
 ):
     """
     Gets a quickstatements from an standardized curation sheet.
@@ -33,6 +33,7 @@ def get_quickstatements_for_curated_sheet(
       wikidata_property (str): The PID of the property to use on Quickstatements.
       dropnas (bool): Whether or not a curation column labeled "ok_row_ was added.
         If true, will dropnas in the column. Useful when good matches are rare.
+      add_aliases (bool)
 
     """
     df = pd.read_csv(curated_sheet_path, dtype={"id": object})
@@ -46,7 +47,8 @@ def get_quickstatements_for_curated_sheet(
             wikidata_id = row["wikidata_id"]
             database_label = row["name"]
             qs += f'{wikidata_id}|{database_p_id}|"{database_id}"' + "\n"
-            qs += f'{wikidata_id}|Aen|"{database_label}"' + "\n"
+            if add_name_as_alias:
+             qs += f'{wikidata_id}|A{alias_lang}|"{database_label}"' + "\n"
     return qs
 
 
