@@ -28,6 +28,7 @@ from wdcuration.sparql import (
     get_wikidata_items_for_id,
     lookup_id,
     lookup_multiple_ids,
+    lookup_value_for_multiple_qids,
     query_wikidata,
 )
 from wdcuration.utils import divide_in_chunks_of_equal_len
