@@ -6,6 +6,7 @@ import pandas as pd
 from aiohttp import ClientSession
 from numpy import dtype
 from tqdm import tqdm
+from typing import List
 
 from wdcuration.api_searches import parse_wikidata_result
 from wdcuration.quickstatements import render_qs_url
@@ -53,17 +54,21 @@ def get_quickstatements_for_curated_sheet(
 
 
 async def async_search_wikidata(
-    search_term,
-    session,
-    excluded_types=[],
-    fixed_type=None,
-    exclude_basic=False,
+    search_term: str,
+    session: ClientSession,
+    excluded_types: List[str] = None,
+    fixed_type: str = None,
+    exclude_basic: bool = False,
 ):
     """
     Looks up string on Wikidata.
 
     Returns a nested dictionary with the search term as key and the associated results as value
     """
+    if excluded_types is None:
+        excluded_types = []
+    elif not isinstance(excluded_types, list):
+        raise TypeError("excluded_types must be a list")
 
     basic_exclusion = list(
         {
@@ -106,6 +111,7 @@ async def async_search_wikidata(
         search_expression += f" -haswbstatement:P31={excluded_type} "
     if fixed_type is not None:
         search_expression += f" haswbstatement:P31={fixed_type} "
+    print(search_expression)
 
     base_url = "https://www.wikidata.org/w/api.php?"
     payload = {
@@ -212,14 +218,38 @@ async def run_multiple_searches(
 
 def generate_curation_spreadsheet(
     identifiers_property,
-    curation_table_path,
-    output_file_path,
-    description_term_lookup="",
-    fixed_type=None,
-    excluded_types="",
-    drop_nones=True,
-    exclude_basic=False,
+    curation_table_path: str,
+    output_file_path: str,
+    description_term_lookup: str = "",
+    fixed_type: str = None,
+    excluded_types: List[str] = None,
+    drop_nones: bool = True,
+    exclude_basic: bool = False,
 ):
+    """
+    Generates a curation spreadsheet based on input data, filtering and searching for Wikidata entries.
+
+    This function operates on a Mix'n'match-like spreadsheet, which should contain at least "name" and "id" columns.
+    It enriches this spreadsheet with additional Wikidata information based on the given parameters.
+
+    Args:
+        identifiers_property: The identifier property used for Wikidata searching.
+        curation_table_path: Path to the input spreadsheet to be curated.
+        output_file_path: Path where the curated spreadsheet will be saved.
+        description_term_lookup (str, optional): A term to filter the input table based on the "description" column.
+        fixed_type (str, optional): A fixed type to filter the Wikidata search results.
+        excluded_types (list of str, optional): Types to exclude from the Wikidata search results.
+        drop_nones (bool, optional): If True, rows without a Wikidata ID will be dropped.
+        exclude_basic (bool, optional): If True, basic types will be excluded from the Wikidata search.
+
+    Returns:
+        None: The function outputs the curated spreadsheet to the specified file path.
+    """
+    if excluded_types is None:
+        excluded_types = []
+    elif not isinstance(excluded_types, list):
+        raise TypeError("excluded_types must be a list")
+
     not_on_wikidata = get_subset_not_on_wikidata(
         identifiers_property, curation_table_path, description_term_lookup
     )
@@ -282,11 +312,14 @@ def get_subset_not_on_wikidata(
     full_df = pd.read_csv(
         curation_table_path, on_bad_lines="skip", dtype={"id": object}
     )
-    full_df = full_df.dropna(subset=["description"])
-    df_subset = full_df.query(
-        f"description.str.contains('{description_term_lookup}')",
-        engine="python",
-    )
+    if description_term_lookup != "":
+      full_df = full_df.dropna(subset=["description"])
+      df_subset = full_df.query(
+          f"description.str.contains('{description_term_lookup}')",
+          engine="python",
+      )
+    else:
+        df_subset = full_df
     df_subset["id"] = [a.strip() for a in df_subset["id"]]
     not_on_wikidata = df_subset[~df_subset.id.isin(terms_on_wikidata.keys())]
     return not_on_wikidata

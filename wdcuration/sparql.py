@@ -181,9 +181,8 @@ def lookup_id(id, property, default="") -> str:
 
 
 def format_with_prefix(list_of_qids):
-
-  list_with_prefix = ["wd:" + i for i in list_of_qids]
-  return "{ " + " ".join(list_with_prefix) + " }"
+    list_with_prefix = ["wd:" + i for i in list_of_qids]
+    return "{ " + " ".join(list_with_prefix) + " }"
 
 
 def lookup_value_for_multiple_qids(list_of_qids, wikidata_property, return_type="dict"):
@@ -194,7 +193,7 @@ def lookup_value_for_multiple_qids(list_of_qids, wikidata_property, return_type=
         list_of_smaller_lists_of_qids = chunk(list_of_qids, 200)
         result_dict = {}
         for small_list in tqdm(list_of_smaller_lists_of_qids):
-            current_dict = lookup_multiple_ids(small_list, wikidata_property)
+            current_dict = lookup_value_for_multiple_qids(small_list, wikidata_property)
             result_dict.update(current_dict)
             sleep(0.3)
 
@@ -210,7 +209,7 @@ def lookup_value_for_multiple_qids(list_of_qids, wikidata_property, return_type=
   (REPLACE(STR(?item), ".*Q", "Q") AS ?qid)
   ?id
   WHERE { """
-        f'VALUES ?item {formatted_qids}. '
+        f"VALUES ?item {formatted_qids}. "
         f"?item wdt:{wikidata_property} ?id . "
         """
   }
@@ -224,7 +223,6 @@ def lookup_value_for_multiple_qids(list_of_qids, wikidata_property, return_type=
         return result_dict
     if return_type == "list":
         return list(result_dict.values())
-
 
 
 def lookup_multiple_ids(list_of_ids, wikidata_property, return_type="dict"):
