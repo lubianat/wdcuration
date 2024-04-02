@@ -4,11 +4,12 @@ __author__ = """Tiago Lubiana"""
 __email__ = "tiago.lubiana.alves@usp.br"
 __version__ = "0.2.1"
 
-from wdcuration.api_searches import add_key, parse_wikidata_result, search_wikidata
+from wdcuration.api_searches import parse_wikidata_result, search_wikidata
 from wdcuration.dict_handler import (
     NewItemConfig,
     WikidataDictAndKey,
     check_and_save_dict,
+    add_key,
 )
 from wdcuration.quickstatements import (
     convert_date_to_quickstatements,
@@ -28,6 +29,7 @@ from wdcuration.sparql import (
     get_wikidata_items_for_id,
     lookup_id,
     lookup_multiple_ids,
+    lookup_label,
     lookup_value_for_multiple_qids,
     query_wikidata,
 )

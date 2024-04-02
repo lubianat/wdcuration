@@ -7,13 +7,41 @@ from aiohttp import ClientSession
 from numpy import dtype
 from tqdm import tqdm
 from typing import List
+import os
 
 from wdcuration.api_searches import parse_wikidata_result
 from wdcuration.quickstatements import render_qs_url
 from wdcuration.sparql import get_wikidata_items_for_id
 from wdcuration.utils import divide_in_chunks_of_equal_len
 
-
+BASIC_EXCLUSION = list(
+        {
+            "Q26842193": "journal",
+            "Q5633421": "scientific journal",
+            "Q737498": "academic journal",
+            "Q7725634": "literary work",
+            "Q47461344": "written work",
+            "Q101352": "family name",
+            "Q13442814": "scholarly article",
+            "Q732577": "publication",
+            "Q3331189": "version, edition or translation",
+            "Q187685": "doctoral thesis",
+            "Q1266946": "thesis",
+            "Q4167410": "disambiguation page",
+            "Q16521": "taxon",
+            "Q4167836": "Wikimedia category",
+            "Q30612": "clinical trial",
+            "Q215380": "musical group",
+            "Q482994": "musical album",
+            "Q105543609": "musical work",
+            "Q134556": "music single",
+            "Q5": "human",
+            "Q838795": "comic strip",
+            "Q3305213": "painting",
+            "Q21191270": "television series episode",
+            "Q15711870": "animated character",
+        }.keys()
+    )
 def print_quickstatements_for_curated_sheet(
     curated_sheet_path, wikidata_property, dropnas=False
 ):
@@ -70,34 +98,8 @@ async def async_search_wikidata(
     elif not isinstance(excluded_types, list):
         raise TypeError("excluded_types must be a list")
 
-    basic_exclusion = list(
-        {
-            "Q26842193": "journal",
-            "Q5633421": "scientific journal",
-            "Q737498": "academic journal",
-            "Q7725634": "literary work",
-            "Q47461344": "written work",
-            "Q101352": "family name",
-            "Q13442814": "scholarly article",
-            "Q732577": "publication",
-            "Q3331189": "version, edition or translation",
-            "Q187685": "doctoral thesis",
-            "Q1266946": "thesis",
-            "Q4167410": "disambiguation page",
-            "Q16521": "taxon",
-            "Q4167836": "Wikimedia category",
-            "Q30612": "clinical trial",
-            "Q215380": "musical group",
-            "Q482994": "musical album",
-            "Q105543609": "musical work",
-            "Q134556": "music single",
-            "Q5": "human",
-            "Q838795": "comic strip",
-            "Q3305213": "painting",
-            "Q21191270": "television series episode",
-            "Q15711870": "animated character",
-        }.keys()
-    )
+    # Note: for some reason, adding the "haswbstatement" bits messes up with the ranking of the results.
+    basic_exclusion = BASIC_EXCLUSION
     excluded_types_local = excluded_types
     # Workaround to avoid accumulation. Not sure why, but they are accumulating.
     excluded_types_local = list(set(excluded_types_local))
@@ -111,7 +113,6 @@ async def async_search_wikidata(
         search_expression += f" -haswbstatement:P31={excluded_type} "
     if fixed_type is not None:
         search_expression += f" haswbstatement:P31={fixed_type} "
-    print(search_expression)
 
     base_url = "https://www.wikidata.org/w/api.php?"
     payload = {
@@ -215,7 +216,6 @@ async def run_multiple_searches(
         result_dict.update(d)
     return result_dict
 
-
 def generate_curation_spreadsheet(
     identifiers_property,
     curation_table_path: str,
@@ -225,6 +225,7 @@ def generate_curation_spreadsheet(
     excluded_types: List[str] = None,
     drop_nones: bool = True,
     exclude_basic: bool = False,
+    overwrite: bool= True
 ):
     """
     Generates a curation spreadsheet based on input data, filtering and searching for Wikidata entries.
@@ -241,10 +242,14 @@ def generate_curation_spreadsheet(
         excluded_types (list of str, optional): Types to exclude from the Wikidata search results.
         drop_nones (bool, optional): If True, rows without a Wikidata ID will be dropped.
         exclude_basic (bool, optional): If True, basic types will be excluded from the Wikidata search.
+        overwrite (bool, optional): If False, code will check for the existence of a previous target file and keep it.
 
     Returns:
         None: The function outputs the curated spreadsheet to the specified file path.
     """
+    if not overwrite and os.path.isfile(output_file_path):
+      print(f"Target file '{output_file_path}' already exists. Skipping generation.")
+      return
     if excluded_types is None:
         excluded_types = []
     elif not isinstance(excluded_types, list):

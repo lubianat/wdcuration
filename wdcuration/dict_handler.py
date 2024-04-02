@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
-from wdcuration.api_searches import add_key, go_to_wikidata, search_wikidata
+from wdcuration.api_searches import  go_to_wikidata, search_wikidata
 from wdcuration.quickstatements import render_qs_url
 
 
@@ -53,7 +53,8 @@ class WikidataDictAndKey:
     """
     A class containing the dicts and keys used in reconciliations to Wikidata
     Attributes:
-      master_dict: A dict of dicts, each of the inner dicts containing the keys mapped to Wikidata ids.
+      master_dict: A dict of dicts, each of the inner dicts containing the keys mapped to Wikidata ids. 
+    For example, `{ "inner_dict_1": {"human" : "Q5"}}`
       dict_name: The name of the inner dict that the new key will be added.
       string: The key and search string to be added to the dict. It is overwritten by
         "dict_key" and "search_string" when available.
@@ -147,6 +148,58 @@ class WikidataDictAndKey:
         )
 
 
+
+def add_key(
+    dictionary,
+    string,
+    dict_key="",
+    search_string="",
+    excluded_types: list = ["Q13442814"],
+) -> dict:
+    """
+    Prompts the user for adding a key to the target dictionary.
+    Args:
+        dictionary (dict): A reference dictionary containing strings as keys and Wikidata QIDs as values.
+        string (str): The value for search and key, in case it is the same.
+        dict_key (str): The key to be used in the dictionary. If none is provided, uses the "string" entry.
+        search_string (str): The string to be searched in Wikidata. If none is provided, uses the "string" entry.
+    Returns:
+        dict: The updated dictionary.
+    """
+
+    if dict_key == "":
+        dict_key = string
+    if search_string == "":
+        search_string = string
+    predicted_id = search_wikidata(search_string, excluded_types, exclude_basic=True)
+    annotated = False
+
+    while annotated == False:
+        answer = input(
+            f"Is the QID for '{search_string}'  \n "
+            f"{predicted_id['id']} - {predicted_id['label']} "
+            f"({predicted_id['description']}) ? (y/n) "
+        )
+
+        if answer == "y":
+            dictionary[dict_key] = predicted_id["id"]
+            annotated = True
+        elif answer == "n":
+            search = input("Search Wikidata? (y/n/skip)")
+            if search == "y":
+                go_to_wikidata(search_string)
+            elif search == "skip":
+                break
+            qid = input(f"What is the qid for: '{search_string}' ? ")
+            dictionary[dict_key] = qid
+            annotated = True
+        else:
+            print("Answer must be either 'y', 'n' ")
+
+    return dictionary
+
+
+
 def check_and_save_dict(
     master_dict,
     dict_name,
@@ -156,13 +209,18 @@ def check_and_save_dict(
     search_string="",
     format_function=str,
     excluded_types: list = ["Q13442814"],
+    add_anyways = False
 ):
-    if string not in master_dict[dict_name]:
+    if search_string == "":
+        search_string = format_function(string)
+    if dict_key == "":
+        dict_key = string
+    if add_anyways or  dict_key not in master_dict[dict_name]:
         master_dict[dict_name] = add_key(
             master_dict[dict_name],
             string,
             dict_key=dict_key,
-            search_string=format_function(string),
+            search_string=search_string,
             excluded_types=excluded_types,
         )
         path.joinpath(f"{dict_name}.json").write_text(
