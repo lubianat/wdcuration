@@ -10,6 +10,7 @@ from wdcuration.dict_handler import (
     WikidataDictAndKey,
     check_and_save_dict,
     add_key,
+    add_key_and_save_to_independent_dict
 )
 from wdcuration.quickstatements import (
     convert_date_to_quickstatements,
