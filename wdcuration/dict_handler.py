@@ -147,7 +147,17 @@ class WikidataDictAndKey:
             json.dumps(self.master_dict[self.dict_name], indent=4, sort_keys=True)
         )
 
-
+def add_key_and_save_to_independent_dict(
+    dictionary,
+    dictionary_path: Path,
+    string,
+    dict_key="",
+    search_string="",
+    excluded_types: list = ["Q13442814"],
+):
+    updated_dict = add_key(dictionary, string, dict_key, search_string, excluded_types)
+    dictionary_path.write_text(json.dumps(update_dict, indent=4, sort_keys=True))
+    return updated_dict
 
 def add_key(
     dictionary,
@@ -197,8 +207,6 @@ def add_key(
             print("Answer must be either 'y', 'n' ")
 
     return dictionary
-
-
 
 def check_and_save_dict(
     master_dict,
