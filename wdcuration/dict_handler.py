@@ -156,7 +156,7 @@ def add_key_and_save_to_independent_dict(
     excluded_types: list = ["Q13442814"],
 ):
     updated_dict = add_key(dictionary, string, dict_key, search_string, excluded_types)
-    dictionary_path.write_text(json.dumps(update_dict, indent=4, sort_keys=True))
+    dictionary_path.write_text(json.dumps(updated_dict, indent=4, sort_keys=True))
     return updated_dict
 
 def add_key(
